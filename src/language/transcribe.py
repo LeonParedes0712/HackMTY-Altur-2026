@@ -1,69 +1,191 @@
 import os
 import glob
+import json
 import pandas as pd
 import numpy as np
+
 from scipy.io import wavfile
+from scipy.signal import resample_poly
 from faster_whisper import WhisperModel
-from concurrent.futures import ProcessPoolExecutor
 
-# Función que ejecuta cada núcleo de la CPU de forma independiente
-def process_single_audio(file_path):
+
+def process_single_audio(file_path, model, turns_dir):
+
     try:
-        # Cargar el modelo 'tiny' con cuantización int8 (pesa ~75MB, ultrarrápido y consume mínima RAM)
-        model = WhisperModel("tiny", device="cpu", compute_type="int8")
-        
-        # 1. Leer la frecuencia de muestreo y el arreglo numérico del audio .wav
         sample_rate, audio_data = wavfile.read(file_path)
-        
-        # 2. Aislar únicamente el Canal 0 (Cliente/Caller). 
-        # Si audio_data tiene 2 dimensiones (estéreo), tomamos la columna 0.
-        caller_audio = audio_data[:, 0] if audio_data.ndim > 1 else audio_data
-        
-        # 3. Convertir los datos PCM de entero de 16 bits a punto flotante (float32) entre -1.0 y 1.0, 
-        # que es el formato requerido por la red neuronal de Whisper.
-        caller_audio = caller_audio.astype(np.float32) / 32768.0
 
-        # 4. Decodificar la voz a texto en español. 
-        # Usar beam_size=1 (búsqueda codiciosa) acelera la inferencia al máximo sin explorar múltiples hipótesis.
-        segments, _ = model.transcribe(caller_audio, language="es", beam_size=1)
-        
-        # 5. Concatenar los fragmentos temporales detectados en una sola cadena de texto limpia
-        text = " ".join([segment.text.strip() for segment in segments])
-        
+        # Canal 0 = caller
+        caller_audio = (
+            audio_data[:, 0]
+            if audio_data.ndim > 1
+            else audio_data
+        )
+
+        caller_audio = (
+            caller_audio.astype(np.float32)
+            / 32768.0
+        )
+
+        file_name = os.path.basename(file_path)
+
+        anon_id = os.path.splitext(file_name)[0]
+
+        turns_path = os.path.join(
+            turns_dir,
+            f"{anon_id}.json"
+        )
+
+        with open(turns_path, "r") as f:
+            turns_data = json.load(f)
+
+        caller_turns = [
+            turn
+            for turn in turns_data["turns"]
+            if turn["channel"] == 0
+        ]
+
+        transcripts = []
+
+        for turn in caller_turns:
+
+            start_sample = int(
+                turn["start"] * sample_rate
+            )
+
+            end_sample = int(
+                turn["end"] * sample_rate
+            )
+
+            segment_audio = caller_audio[
+                start_sample:end_sample
+            ]
+
+            # 8 kHz -> 16 kHz
+            if sample_rate != 16000:
+
+                segment_audio = resample_poly(
+                    segment_audio,
+                    16000,
+                    sample_rate
+                ).astype(np.float32)
+
+            segments, _ = model.transcribe(
+                segment_audio,
+                language="es",
+                beam_size=1
+            )
+
+            text = " ".join(
+                segment.text.strip()
+                for segment in segments
+            ).strip()
+
+            if text:
+                transcripts.append(text)
+
+        final_text = " ".join(transcripts)
+
         return {
-            "file_name": os.path.basename(file_path),
-            "caller_transcript": text
+            "file_name": file_name,
+            "anon_id": anon_id,
+            "caller_transcript": final_text
         }
+
     except Exception as e:
-        # Si un archivo está corrupto, captura la excepción y evita interrupciones en el lote
+
+        print(
+            f"ERROR en {file_path}: {e}"
+        )
+
         return {
             "file_name": os.path.basename(file_path),
+            "anon_id": os.path.splitext(
+                os.path.basename(file_path)
+            )[0],
             "caller_transcript": ""
         }
 
-if __name__ == "__main__":
-    # Obtener la ruta raíz del proyecto subiendo 3 niveles desde la ubicación actual de este script
 
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    audio_pattern = os.path.join(project_root, "audio", "*.wav")
+if __name__ == "__main__":
+
+    project_root = os.path.dirname(
+        os.path.dirname(
+            os.path.dirname(
+                os.path.abspath(__file__)
+            )
+        )
+    )
+
+    audio_pattern = os.path.join(
+        project_root,
+        "audio",
+        "*.wav"
+    )
+
+    turns_dir = os.path.join(
+        project_root,
+        "turns"
+    )
+
     audio_files = glob.glob(audio_pattern)
 
+
     total = len(audio_files)
-    print(f"Iniciando transcripción ultrarrápida en paralelo para {total} llamadas...\n")
+
+    print(
+        f"Iniciando transcripción "
+        f"para {total} llamadas..."
+    )
+
+    # Mejor calidad que tiny
+    model = WhisperModel(
+        "small",
+        device="cuda",
+        compute_type="float16"
+    )
 
     results = []
-    
-    # Calcular núcleos de CPU a utilizar (deja 1 núcleo libre para mantener fluida la Mac)
-    max_workers = max(1, (os.cpu_count() or 4) - 1)
-    
-    # ProcessPoolExecutor distribuye la lista de audios entre los múltiples núcleos de la CPU al mismo tiempo
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        for index, result in enumerate(executor.map(process_single_audio, audio_files), start=1):
-            results.append(result)
-            print(f"[{index}/{total}] Procesado: {result['file_name']}")
 
-    # Crear una tabla con Pandas y exportarla a un archivo CSV en src language
-    output_csv = os.path.join(project_root, "src", "language", "caller_transcriptions.csv")
+    for index, file_path in enumerate(
+        audio_files,
+        start=1
+    ):
+
+        result = process_single_audio(
+            file_path,
+            model,
+            turns_dir
+        )
+
+        results.append(result)
+
+        status = (
+            "OK"
+            if result["caller_transcript"].strip()
+            else "VACÍO"
+        )
+
+        print(
+            f"[{index}/{total}] "
+            f"{status}: "
+            f"{result['file_name']}"
+        )
+
+    output_csv = os.path.join(
+        project_root,
+        "src",
+        "language",
+        "caller_transcriptions.csv"
+    )
+
     df = pd.DataFrame(results)
-    df.to_csv(output_csv, index=False)
-    print(f"\n¡Completado con éxito! Transcripciones guardadas en: {output_csv}")
+
+    df.to_csv(
+        output_csv,
+        index=False
+    )
+
+    print(
+        "\nTranscripciones guardadas en:",
+        output_csv
+    )

@@ -72,50 +72,123 @@ def extract_language_features(text, duration_sec):
 
 if __name__ == "__main__":
     # definición de rutas principales
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    
-    transcripts_path = os.path.join(project_root, "src", "language", "caller_transcriptions.csv")
-    metrics_path = os.path.join(project_root, "src", "audio", "audio_metrics.csv")
-    
-    print("cargando transcripciones y métricas acústicas...")
-    df_trans = pd.read_csv(transcripts_path)
-    df_audio = pd.read_csv(metrics_path)
-    
-    # unir la transcripción con la duración del audio para calcular words_per_second
-    df = pd.merge(df_trans, df_audio[['file_name', 'duration_sec']], on='file_name', how='left')
-    
-    rows = []
-    for _, row in df.iterrows():
-        features = extract_language_features(
-            text=row.get('caller_transcript', ''), 
-            duration_sec=row.get('duration_sec', 0)
+    project_root = os.path.dirname(
+        os.path.dirname(
+            os.path.dirname(
+                os.path.abspath(__file__)
+            )
         )
-        # usamos anon_id conservando el identificador del archivo
-        features['anon_id'] = row['file_name']
+    )
+
+    transcripts_path = os.path.join(
+        project_root,
+        "src",
+        "language",
+        "caller_transcriptions.csv"
+    )
+
+    manifest_path = os.path.join(
+        project_root,
+        "manifest.csv"
+    )
+
+    print("cargando transcripciones y manifest...")
+
+    df_trans = pd.read_csv(transcripts_path)
+    df_manifest = pd.read_csv(manifest_path)
+
+    # unir duración oficial del manifest usando anon_id
+    df = pd.merge(
+        df_trans,
+        df_manifest[
+            [
+                "anon_id",
+                "duration_s",
+                "label",
+                "split"
+            ]
+        ],
+        on="anon_id",
+        how="left"
+    )
+
+    rows = []
+
+    for _, row in df.iterrows():
+
+        features = extract_language_features(
+            text=row.get(
+                "caller_transcript",
+                ""
+            ),
+            duration_sec=row.get(
+                "duration_s",
+                0
+            )
+        )
+
+        # conservar identificador limpio
+        features["anon_id"] = row["anon_id"]
+
+        # conservar label y split
+        features["label"] = row.get(
+            "label",
+            None
+        )
+
+        features["split"] = row.get(
+            "split",
+            None
+        )
+
         rows.append(features)
-        
+
     out_df = pd.DataFrame(rows)
-    
-    # ordenar las columnas exactamente como lo requiere el equipo
+
+    # ordenar columnas
     ordered_cols = [
-        'anon_id',
-        'word_count',
-        'words_per_second',
-        'lexical_diversity',
-        'filler_count',
-        'filler_rate',
-        'confusion_phrase_count',
-        'self_correction_count',
-        'repetition_count',
-        'repair_count'
+        "anon_id",
+        "word_count",
+        "words_per_second",
+        "lexical_diversity",
+        "filler_count",
+        "filler_rate",
+        "confusion_phrase_count",
+        "self_correction_count",
+        "repetition_count",
+        "repair_count",
+        "label",
+        "split"
     ]
+
     out_df = out_df[ordered_cols]
-    
-    # exportar resultados a outputs/language_features.csv
-    out_dir = os.path.join(project_root, "outputs")
-    os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "language_features.csv")
-    
-    out_df.to_csv(out_path, index=False)
-    print(f"éxito! features de lenguaje procesadas para {len(out_df)} llamadas.")
-    print(f"archivo guardado en: {out_path}")
+
+    # exportar resultados
+    out_dir = os.path.join(
+        project_root,
+        "outputs"
+    )
+
+    os.makedirs(
+        out_dir,
+        exist_ok=True
+    )
+
+    out_path = os.path.join(
+        out_dir,
+        "language_features.csv"
+    )
+
+    out_df.to_csv(
+        out_path,
+        index=False
+    )
+
+    print(
+        f"éxito! features de lenguaje "
+        f"procesadas para {len(out_df)} llamadas."
+    )
+
+    print(
+        f"archivo guardado en: {out_path}"
+    )
