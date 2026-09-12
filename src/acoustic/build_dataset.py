@@ -17,25 +17,28 @@ test_df = pd.concat([
 
 rows = []
 
-for _, row in test_df.iterrows():
+for _, row in df.iterrows():
     anon_id = row["anon_id"]
     label = row["label"]
+    split = row["split"]
 
     audio_path = ROOT / "audio" / f"{anon_id}.wav"
 
-    # Verificar que el audio exista
+    # Saltar audios que no existan
     if not audio_path.exists():
         print("No existe:", audio_path)
         continue
 
-    # Sacar características usando la función de tu compañero
+    # Extraer características acústicas
     features = extract_features(audio_path)
 
-    # Agregar información del manifest
+    # Agregar metadatos del manifest
     features["anon_id"] = anon_id
     features["label"] = label
+    features["split"] = split
 
     rows.append(features)
+
 
 # Convertir todos los resultados a DataFrame
 result_df = pd.DataFrame(rows)
