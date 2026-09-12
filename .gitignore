@@ -14,3 +14,6 @@ outputs/
 .ipynb_checkpoints/
 
 
+
+# Also ignore a local symlink to the audio directory.
+/audio

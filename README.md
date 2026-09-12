@@ -39,3 +39,7 @@ Your system exposes `POST /detect`. It receives a stereo WAV clip (8 kHz, base64
 
 Human callers volunteered, were told the call was recorded for an AI test, and used invented personal data. Do not try to identify anyone.
 This dataset is provided for HackMTY 2026 only; do not redistribute.
+
+## Team acoustic baseline
+
+See [ACOUSTIC.md](ACOUSTIC.md) for caller-only feature extraction, training and integration.
