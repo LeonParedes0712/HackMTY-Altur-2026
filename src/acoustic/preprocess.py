@@ -7,24 +7,34 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def load_audio(path):
-    path = Path(path)
-    if not path.is_absolute():
-        path = ROOT / path
+    # Acepta rutas y WAV en memoria para compartir la extracción con la API.
+    if isinstance(path, (str, Path)):
+        path = Path(path)
+        if not path.is_absolute():
+            path = ROOT / path
 
     audio, sr = sf.read(
-        str(path),
+        path,
         dtype="float32",
         always_2d=True,
     )
+
+    if sr != 8000:
+        raise ValueError("Se requiere audio a 8000 Hz")
+    if audio.shape[1] != 2:
+        raise ValueError("Se requiere audio estéreo: canal 0 cliente, canal 1 agente")
 
     # Canal 0, sin mezclarlo con el otro canal.
     audio = audio[:, 0]
 
     if audio.size == 0:
-        raise ValueError(f"Audio vacío: {path.name}")
+        raise ValueError("Audio vacío")
 
     if not np.isfinite(audio).all():
-        raise ValueError(f"Audio con valores inválidos: {path.name}")
+        raise ValueError("Audio con valores inválidos")
+
+    if not np.any(audio):
+        raise ValueError("El canal del cliente contiene únicamente silencio")
 
     return audio, sr
 

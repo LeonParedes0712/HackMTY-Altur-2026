@@ -6,7 +6,10 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from features import extract_features
+try:
+    from .features import extract_features
+except ImportError:
+    from features import extract_features
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_PATH = ROOT / "models" / "acoustic_logistic.pkl"
@@ -29,9 +32,12 @@ class AcousticPredictor:
         if not 0 < threshold < 1:
             raise ValueError("El umbral debe estar entre 0 y 1")
 
-        audio_path = Path(audio_path)
-        if not audio_path.is_absolute():
-            audio_path = ROOT / audio_path
+        anon_id = None
+        if isinstance(audio_path, (str, Path)):
+            audio_path = Path(audio_path)
+            if not audio_path.is_absolute():
+                audio_path = ROOT / audio_path
+            anon_id = audio_path.stem
 
         values = extract_features(audio_path)
 
@@ -58,7 +64,7 @@ class AcousticPredictor:
             raise ValueError("El modelo devolvió una probabilidad inválida")
 
         return {
-            "anon_id": audio_path.stem,
+            "anon_id": anon_id,
             "p_synthetic": p_synthetic,
             "p_human": 1.0 - p_synthetic,
             "is_synthetic": bool(p_synthetic >= threshold),

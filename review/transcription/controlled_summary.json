@@ -1,0 +1,12 @@
+{
+  "without_resampling": {
+    "empty": 2,
+    "errors": 0,
+    "words": 6
+  },
+  "with_resampling": {
+    "empty": 0,
+    "errors": 0,
+    "words": 199
+  }
+}
