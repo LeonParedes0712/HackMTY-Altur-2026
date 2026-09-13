@@ -7,7 +7,7 @@ La versión actual usa exclusivamente el canal 0 (cliente), extrae 31 caracterí
 Con el entorno existente:
 
 ```sh
-.venv/bin/python -m src.acoustic.serve
+.venv/bin/python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
 En otra terminal, enviar un audio:
@@ -26,16 +26,16 @@ La predicción directa muestra `p_synthetic`, `p_human` y el umbral. Estas proba
 
 ## Contrato del servicio
 
-- `GET /health`: devuelve `{"status": "ok"}` después de cargar el modelo.
+- `GET /health`: devuelve `{"status": "ok", "model": "acoustic_logistic"}` después de cargar el modelo.
 - `POST /detect`, `Content-Type: application/json`.
 - Cuerpo: `{"audio": "BASE64_DEL_ARCHIVO_WAV_COMPLETO"}`.
 - Respuesta: `{"is_synthetic": true}` o `{"is_synthetic": false}`.
-- Errores de entrada: HTTP 400; tipo de contenido incorrecto: 415; cuerpo vacío o mayor de 32 MiB: 413.
+- Errores: HTTP 400 (base64/duración/silencio), 415 (formato de audio), 413 (tamaño), 422 (estructura).
 - WAV PCM de 16 bits, estéreo, 8000 Hz, hasta 600 segundos. Canal 0 = cliente; canal 1 = agente. Se rechaza el canal del cliente completamente silencioso.
 
 El README del reto no especifica el nombre del campo de entrada. Aquí se usa `audio`; confirmar ese nombre con el evaluador antes de entregar. Se omite `confidence`, que es opcional, hasta confirmar si representa probabilidad de voz sintética o confianza de la clase elegida.
 
-Por defecto escucha únicamente en esta computadora, puerto 8000. Para un entorno de evaluación que necesite acceso desde fuera, usar `--host 0.0.0.0 --port 8000`. Es un servicio de demostración que procesa una llamada a la vez; no está dimensionado para tráfico concurrente.
+Por defecto escucha únicamente en esta computadora, puerto 8000. Para un entorno de evaluación que necesite acceso desde fuera, usar `--host 0.0.0.0 --port 8000`. La inferencia se ejecuta en el pool de hilos de FastAPI; falta medir capacidad concurrente en despliegue.
 
 ## Evaluación reproducible
 
@@ -53,14 +53,14 @@ Resultado comprobado: 69/71 correctas (97.18%), F1 sintético 0.9714. Matriz de 
 
 ## Preparar otro entorno
 
-Se registraron las versiones del entorno local que pasó las pruebas, con Python 3.13:
+Se registraron las versiones del entorno local que pasó las pruebas, y se verificó la integración con Python 3.14:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-acoustic.txt
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
-La instalación desde cero no se ha verificado. El modelo `models/acoustic_logistic.pkl` y los datos acústicos están excluidos de Git por el proyecto; no basta con copiar únicamente el código. Para reconstruir el modelo, con los audios y manifest disponibles:
+La instalación limpia del detector final se verificó con Python 3.14.4. El artefacto `models/acoustic_logistic.pkl` (4,329 bytes) está preparado para incluirse en el commit de entrega; los audios siguen excluidos. No se requiere reconstruirlo. Los comandos siguientes son únicamente referencia histórica de entrenamiento, no pasos de instalación de la entrega congelada:
 
 ```sh
 .venv/bin/python src/acoustic/build_dataset.py
@@ -69,6 +69,8 @@ La instalación desde cero no se ha verificado. El modelo `models/acoustic_logis
 
 Estos dos pasos regeneran las características y sobrescriben el modelo respectivamente; no se necesitan para usar el modelo actual.
 
-## Siguiente mejora
+## Nota histórica de evaluación
 
-Investigar `call_10aa0d1d33f0` y `call_bc2c7c34acea`, los dos falsos positivos. Después comparar extracción sobre segmentos de voz frente a la llamada completa. Cualquier cambio en características debe aplicarse tanto al entrenamiento como a la predicción, reentrenarse y evaluarse. No ajustar el umbral únicamente para corregir estos dos casos.
+La rama original proponía investigar `call_10aa0d1d33f0` y `call_bc2c7c34acea`, los dos falsos positivos. Para nuevas decisiones se debe usar exclusivamente train; estos errores de val no deben orientar ajustes. Cualquier cambio en características debe aplicarse tanto al entrenamiento como a la predicción, reentrenarse y evaluarse. No ajustar características, modelos ni umbrales mirando val.
+
+El servidor final es FastAPI. `src/acoustic/serve.py` se conserva solo como referencia histórica. Véase [documentación de FastAPI](docs/fastapi.md) para upload, pruebas y límites.

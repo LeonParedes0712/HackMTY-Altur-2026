@@ -6,9 +6,9 @@ import joblib
 import numpy as np
 import pandas as pd
 
-try:
+if __package__:
     from .features import extract_features
-except ImportError:
+else:
     from features import extract_features
 
 ROOT = Path(__file__).resolve().parents[2]

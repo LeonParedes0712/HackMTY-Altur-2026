@@ -1,4 +1,7 @@
-"""Servicio local del detector acústico: python -m src.acoustic.serve."""
+"""Referencia histórica del servicio HTTP; servidor final: src.api.main:app.
+
+Los helpers se conservan para las pruebas históricas. No usar como servidor.
+"""
 import argparse
 import base64
 import binascii
@@ -14,8 +17,7 @@ try:
 except ImportError:
     from predict import AcousticPredictor
 
-MAX_BODY_BYTES = 32 * 1024 * 1024
-MAX_DURATION_SECONDS = 600
+from src.acoustic.validation import MAX_BODY_BYTES, validate_audio
 
 
 def detect(payload, predictor):
@@ -25,18 +27,7 @@ def detect(payload, predictor):
         raw = base64.b64decode(payload["audio"], validate=True)
     except (binascii.Error, ValueError) as exc:
         raise ValueError("El campo audio no contiene base64 válido") from exc
-    if not raw:
-        raise ValueError("Audio vacío")
-    try:
-        info = sf.info(io.BytesIO(raw))
-    except (RuntimeError, ValueError) as exc:
-        raise ValueError("No se pudo leer el audio WAV") from exc
-    if info.format != "WAV" or info.subtype != "PCM_16":
-        raise ValueError("Se requiere WAV PCM de 16 bits")
-    if info.samplerate != 8000 or info.channels != 2:
-        raise ValueError("Se requiere WAV estéreo a 8000 Hz")
-    if not 0 < info.duration <= MAX_DURATION_SECONDS:
-        raise ValueError("La duración debe ser mayor que cero y como máximo 600 segundos")
+    validate_audio(raw)
     result = predictor.predict(io.BytesIO(raw))
     # confidence es opcional; se omite hasta confirmar su semántica con el reto.
     return {"is_synthetic": result["is_synthetic"]}
@@ -88,19 +79,10 @@ def make_handler(predictor):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8000)
-    args = parser.parse_args()
-    predictor = AcousticPredictor()
-    server = HTTPServer((args.host, args.port), make_handler(predictor))
-    print(f"Detector listo en http://{args.host}:{args.port}", flush=True)
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        server.server_close()
+    raise SystemExit(
+        "Servidor histórico retirado. Usa: .venv/bin/python -m uvicorn "
+        "src.api.main:app --host 127.0.0.1 --port 8000 --workers 1"
+    )
 
 
 if __name__ == "__main__":

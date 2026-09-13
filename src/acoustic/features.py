@@ -1,9 +1,9 @@
 import numpy as np
 import librosa
 
-try:
+if __package__:
     from .preprocess import load_audio
-except ImportError:
+else:
     from preprocess import load_audio
 
 
