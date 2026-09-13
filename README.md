@@ -88,11 +88,15 @@ acústico cargado al inicio. `/health` comprueba esa instancia sin ejecutar
 una inferencia. La respuesta oficial de ambos POST es exactamente:
 
 ```json
-{"is_synthetic": true}
+{"is_synthetic": true, "confidence": 0.87}
 ```
 
-`confidence` se omite: el contrato original lo declara opcional, pero no
-define si representa probabilidad de synthetic o de la clase elegida.
+`confidence` es la probabilidad de la clase elegida: `p_synthetic` cuando
+`is_synthetic` es true y `p_human` cuando es false. Ambos POST devuelven el
+mismo float finito entre 0 y 1; una probabilidad inválida del modelo produce
+HTTP 500. Esta semántica se fija por la especificación final de la entrega;
+el contrato original del reto declara el campo opcional. No se recalibra
+el modelo ni se cambia el umbral 0.5.
 
 Con un audio disponible localmente:
 

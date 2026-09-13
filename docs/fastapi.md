@@ -10,14 +10,14 @@ Desde la raíz del repositorio:
 Swagger: http://localhost:8000/docs. `POST /detect-upload` recibe el campo
 multipart `file`. `GET /health` confirma la carga del modelo.
 `POST /detect` recibe `{"audio":"<base64>"}` y devuelve
-`{"is_synthetic":true}` (o `false`). Ambos usan el mismo predictor acústico,
+`{"is_synthetic":true,"confidence":0.87}` (ejemplo). Ambos usan el mismo predictor acústico,
 con umbral fijo 0.5 y canal 0; no convierten ni mezclan los canales.
 
-El README del reto, sección Evaluation, declara `confidence` opcional y usado
-para desempate/calibración, pero no define si es probabilidad de synthetic o
-de la clase elegida. Por la instrucción final del usuario se omite. Si los
-organizadores confirman la segunda interpretación, correspondería usar
-`p_synthetic` cuando la predicción sea synthetic y `p_human` en otro caso.
+El contrato original del reto declara confidence opcional. La especificación
+final de entrega fija su semántica: probabilidad de la clase elegida,
+`p_synthetic` cuando is_synthetic es true y `p_human` en otro caso. Se devuelve
+como float finito entre 0 y 1, igual en ambos POST. Un valor no finito o fuera
+de rango produce HTTP 500. No se recalibra ni se modifica el umbral 0.5.
 
 Se exige base64 estricto, WAV PCM de 16 bits, 8000 Hz, dos canales y datos
 completos. El límite del archivo es 30 MiB; el del cuerpo HTTP es 32 MiB (incluye base64 o multipart). La duración
@@ -64,8 +64,8 @@ de selección del artefacto. No se entrenó ni evaluó una fusión en este cambi
 
 ## Pendientes y servidor anterior
 
-- Confirmar con los organizadores la semántica de confidence y los límites
-  de duración/tamaño, si requieren otros valores.
+- Confirmar con los organizadores los límites de duración/tamaño, si
+  requieren otros valores.
 - Medir latencia/concurrencia en el equipo de despliegue; extracción de pitch
   consume CPU y la primera inferencia puede compilar código de Numba.
 - Verificar generalización con evaluación independiente; si se evalúa fusión

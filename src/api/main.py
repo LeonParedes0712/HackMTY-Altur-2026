@@ -3,6 +3,7 @@ import base64
 import binascii
 from contextlib import asynccontextmanager
 import io
+import math
 from pathlib import Path
 import tempfile
 import wave
@@ -10,7 +11,7 @@ import wave
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, Field, StrictStr
 from starlette.concurrency import run_in_threadpool
 
 from src.acoustic.predict import AcousticPredictor
@@ -75,6 +76,7 @@ class DetectRequest(BaseModel):
 
 class DetectResponse(BaseModel):
     is_synthetic: bool
+    confidence: float = Field(ge=0, le=1, allow_inf_nan=False)
 
 
 @app.exception_handler(RequestValidationError)
@@ -123,8 +125,11 @@ def predict_audio(data: bytes, predictor: AcousticPredictor) -> DetectResponse:
             result = predictor.predict(path, threshold=0.5)
         except ValueError as exc:
             raise HTTPException(400, "El audio no puede analizarse; verifica el canal del cliente") from exc
-    # Confidence se omite: el reto no define su semántica de clase.
-    return DetectResponse(is_synthetic=result["is_synthetic"])
+    is_synthetic = result["is_synthetic"]
+    confidence = float(result["p_synthetic"] if is_synthetic else result["p_human"])
+    if not math.isfinite(confidence) or not 0 <= confidence <= 1:
+        raise HTTPException(500, "El modelo devolvió una confianza inválida")
+    return DetectResponse(is_synthetic=is_synthetic, confidence=confidence)
 
 
 @app.get("/health")

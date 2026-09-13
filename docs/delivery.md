@@ -104,8 +104,10 @@ orden de variables y mapa de clases; no audios ni transcripciones. No se
 identificó en el README una prohibición específica de entregar los parámetros
 aprendidos del detector; se mantiene la restricción sobre los datos originales.
 
-La respuesta de ambos POST es únicamente `{"is_synthetic": boolean}`.
-Se omite confidence por falta de definición de su semántica en el README.
+La respuesta de ambos POST es `{"is_synthetic": boolean, "confidence": float}`.
+Por la especificación final, confidence es la probabilidad de la clase elegida
+(`p_synthetic` si true, `p_human` si false), finita y entre 0 y 1. Un valor
+inválido produce HTTP 500. No se recalibra ni se cambia el umbral 0.5.
 
 ## Verificación final
 
@@ -120,7 +122,8 @@ Se omite confidence por falta de definición de su semántica en el README.
 - Primera llamada human de train: 200, `is_synthetic=false` por JSON y upload.
 - Primera llamada synthetic de train: 200, `is_synthetic=true` por ambos POST.
 - Base64 inválido: 400; contenido no WAV: 415. Respuestas positivas con la
-  única clave requerida, tipo booleano e igualdad entre endpoints.
+  claves is_synthetic y confidence, tipos booleano/float, confianza finita
+  entre 0 y 1 e igualdad entre endpoints.
 - 24 tests pasaron en el entorno original (6.118 s): API, acústico, integridad
   de características lingüísticas y procesamiento de transcripción con mocks.
   No se ejecutó Whisper ni entrenamiento; no se ejecutó el test experimental
@@ -152,3 +155,27 @@ el equipo final; las pruebas de contrato no equivalen a una prueba de carga.
 
 Las métricas y límites de generalización están en README y en
 `docs/corrected-model-review.md`; no se recalcularon durante esta preparación.
+
+## Cambio final de confidence
+
+Después de la entrega inicial se añadió confidence a ambos POST, sin cambiar
+modelo ni umbral. La suite completa registrada pasó: 26 tests (5.435 s).
+Se excluyen únicamente los experimentos sin registrar que entrenan modelos.
+HTTP real con Uvicorn pasó para ambas clases y ambos POST con resultados iguales:
+
+- Human: `{"is_synthetic":false,"confidence":0.9969666626337651}`.
+- Synthetic: `{"is_synthetic":true,"confidence":0.9797105228621958}`.
+
+También pasaron health, Swagger y rechazos de base64/formato inválidos. El hash
+del modelo acústico sigue siendo el documentado. Archivos exactos para el commit
+de este cambio (la lista de 17 archivos anterior corresponde a la entrega inicial):
+
+```text
+src/api/main.py
+tests/test_api.py
+tests/smoke_uvicorn.py
+README.md
+ACUSTICO.md
+docs/fastapi.md
+docs/delivery.md
+```

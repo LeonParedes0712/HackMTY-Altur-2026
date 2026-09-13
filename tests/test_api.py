@@ -1,6 +1,7 @@
 import base64
 import csv
 import io
+import math
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -23,7 +24,7 @@ def wav_bytes(channels=2, rate=8000, width=2, frames=2048):
 class APIValidationTests(unittest.TestCase):
     def test_validation_and_lifecycle(self):
         with patch.object(main, 'AcousticPredictor') as factory:
-            factory.return_value.predict.return_value = {'is_synthetic': True}
+            factory.return_value.predict.return_value = {'is_synthetic': True, 'p_synthetic': 0.8, 'p_human': 0.2}
             with TestClient(main.app) as client:
                 self.assertEqual(client.get('/health').status_code, 200)
                 self.assertEqual(client.get('/docs').status_code, 200)
@@ -54,6 +55,40 @@ class APIValidationTests(unittest.TestCase):
             factory.assert_called_once()
             self.assertIsNone(main.app.state.predictor)
 
+    def test_confidence_uses_chosen_class_in_both_endpoints(self):
+        data = wav_bytes()
+        with patch.object(main, 'AcousticPredictor') as factory:
+            with TestClient(main.app) as client:
+                for chosen, probability in ((True, 0.8), (False, 0.7), (True, 0.5), (False, 1.0)):
+                    result = {'is_synthetic': chosen,
+                              'p_synthetic': probability if chosen else 1 - probability,
+                              'p_human': 1 - probability if chosen else probability}
+                    factory.return_value.predict.return_value = result
+                    first = client.post('/detect', json={'audio': base64.b64encode(data).decode()})
+                    second = client.post('/detect-upload', files={'file': ('call.wav', data)})
+                    self.assertEqual(first.status_code, 200)
+                    self.assertEqual(second.status_code, 200)
+                    self.assertEqual(first.json(), {'is_synthetic': chosen, 'confidence': probability})
+                    self.assertEqual(first.json(), second.json())
+                for call in factory.return_value.predict.call_args_list:
+                    self.assertEqual(call.kwargs, {'threshold': 0.5})
+
+    def test_invalid_confidence_rejected_in_both_endpoints(self):
+        data = wav_bytes()
+        with patch.object(main, 'AcousticPredictor') as factory:
+            with TestClient(main.app) as client:
+                for chosen in (True, False):
+                    for invalid in (float('nan'), float('inf'), -float('inf'), -0.01, 1.01):
+                        factory.return_value.predict.return_value = {
+                            'is_synthetic': chosen,
+                            'p_synthetic': invalid if chosen else 0.2,
+                            'p_human': 0.2 if chosen else invalid}
+                        first = client.post('/detect', json={'audio': base64.b64encode(data).decode()})
+                        second = client.post('/detect-upload', files={'file': ('call.wav', data)})
+                        self.assertEqual(first.status_code, 500)
+                        self.assertEqual(second.status_code, 500)
+                        self.assertEqual(first.json(), second.json())
+
     def test_silent_caller_is_client_error(self):
         from src.acoustic.preprocess import load_audio
         with patch.object(main, 'AcousticPredictor') as factory:
@@ -76,7 +111,10 @@ class APIValidationTests(unittest.TestCase):
                 self.assertEqual(first.status_code, 200, first.text)
                 self.assertEqual(second.status_code, 200, second.text)
                 self.assertEqual(first.json(), second.json())
-                self.assertEqual(set(first.json()), {'is_synthetic'})
+                self.assertEqual(set(first.json()), {'is_synthetic', 'confidence'})
+                self.assertIs(type(first.json()['confidence']), float)
+                self.assertTrue(math.isfinite(first.json()['confidence']))
+                self.assertTrue(0 <= first.json()['confidence'] <= 1)
                 self.assertIs(type(first.json()['is_synthetic']), bool)
                 print({'label': label, 'response': first.json()}, flush=True)
 

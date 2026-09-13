@@ -1,6 +1,7 @@
 """Prueba HTTP real de Uvicorn; requiere sockets locales."""
 import base64
 import csv
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -36,7 +37,10 @@ try:
             second = client.post('/detect-upload', files={'file': ('call.wav', data, 'audio/wav')})
             assert first.status_code == second.status_code == 200
             assert first.json() == second.json()
-            assert set(first.json()) == {'is_synthetic'}
+            assert set(first.json()) == {'is_synthetic', 'confidence'}
+            assert type(first.json()['confidence']) is float
+            assert math.isfinite(first.json()['confidence'])
+            assert 0 <= first.json()['confidence'] <= 1
             assert type(first.json()['is_synthetic']) is bool
             assert first.json()['is_synthetic'] == (label == 'synthetic')
             print(label, first.json(), flush=True)

@@ -29,11 +29,12 @@ La predicción directa muestra `p_synthetic`, `p_human` y el umbral. Estas proba
 - `GET /health`: devuelve `{"status": "ok", "model": "acoustic_logistic"}` después de cargar el modelo.
 - `POST /detect`, `Content-Type: application/json`.
 - Cuerpo: `{"audio": "BASE64_DEL_ARCHIVO_WAV_COMPLETO"}`.
-- Respuesta: `{"is_synthetic": true}` o `{"is_synthetic": false}`.
+- Respuesta: `{"is_synthetic": true, "confidence": 0.87}` (ejemplo).
+- `confidence`: probabilidad de la clase elegida, finita entre 0 y 1; idéntica en JSON y upload.
 - Errores: HTTP 400 (base64/duración/silencio), 415 (formato de audio), 413 (tamaño), 422 (estructura).
 - WAV PCM de 16 bits, estéreo, 8000 Hz, hasta 600 segundos. Canal 0 = cliente; canal 1 = agente. Se rechaza el canal del cliente completamente silencioso.
 
-El README del reto no especifica el nombre del campo de entrada. Aquí se usa `audio`; confirmar ese nombre con el evaluador antes de entregar. Se omite `confidence`, que es opcional, hasta confirmar si representa probabilidad de voz sintética o confianza de la clase elegida.
+El README del reto no especifica el nombre del campo de entrada. Aquí se usa `audio`; confirmar ese nombre con el evaluador antes de entregar. Por la especificación final de entrega, `confidence` usa `p_synthetic` si la clase elegida es synthetic y `p_human` en otro caso; una probabilidad no finita o fuera de [0, 1] produce HTTP 500.
 
 Por defecto escucha únicamente en esta computadora, puerto 8000. Para un entorno de evaluación que necesite acceso desde fuera, usar `--host 0.0.0.0 --port 8000`. La inferencia se ejecuta en el pool de hilos de FastAPI; falta medir capacidad concurrente en despliegue.
 
