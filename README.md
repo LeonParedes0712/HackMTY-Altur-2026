@@ -1,5 +1,6 @@
 # Human vs. Synthetic Voice Detector
 
+Leonardo Paredes, Emiliano Mayorga, Omar Hernandez, Luis Madera 
 Sistema desarrollado para el **Altur Challenge de HackMTY 2026**. Recibe una llamada telefónica y determina si la voz del cliente pertenece a una persona o fue generada mediante inteligencia artificial.
 
 La versión final utiliza un modelo acústico desplegado mediante **FastAPI**. El servicio recibe un audio, analiza únicamente el canal del cliente y devuelve una clasificación acompañada de un score de confianza.
