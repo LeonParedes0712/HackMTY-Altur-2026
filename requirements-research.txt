@@ -1,0 +1,3 @@
+# Opcional: herramientas offline, no necesarias para /detect.
+-r requirements-test.txt
+faster-whisper==1.2.1

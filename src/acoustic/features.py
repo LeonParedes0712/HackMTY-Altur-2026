@@ -1,7 +1,10 @@
 import numpy as np
 import librosa
 
-from preprocess import load_audio
+if __package__:
+    from .preprocess import load_audio
+else:
+    from preprocess import load_audio
 
 
 def extract_features(path):

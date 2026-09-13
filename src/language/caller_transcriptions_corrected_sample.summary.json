@@ -1,0 +1,17 @@
+{
+  "processed": 353,
+  "matched_previous": 353,
+  "old_empty": 174,
+  "new_empty_text_matched": 0,
+  "old_errors": null,
+  "old_errors_note": "El CSV anterior no distinguía errores de audio sin texto.",
+  "new_success": 353,
+  "new_empty": 0,
+  "new_errors": 0,
+  "old_words_matched": 3495,
+  "new_words_matched": 35822,
+  "models": [
+    "small"
+  ],
+  "note": "Más palabras o menos vacíos no demuestran precisión sin referencia humana."
+}
