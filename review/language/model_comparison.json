@@ -1,0 +1,64 @@
+{
+  "train_calls": 282,
+  "validation_calls": 71,
+  "threshold": 0.5,
+  "protocol": "Tres variantes fijadas previamente; imputaci\u00f3n y escalado ajustados solo con train.",
+  "confusion_matrix_order": [
+    "human",
+    "synthetic"
+  ],
+  "results": {
+    "acoustic": {
+      "accuracy": 0.971830985915493,
+      "f1_synthetic": 0.9714285714285714,
+      "log_loss": 0.107371702829967,
+      "confusion_matrix": [
+        [
+          35,
+          2
+        ],
+        [
+          0,
+          34
+        ]
+      ],
+      "errors": 2,
+      "feature_count": 31
+    },
+    "language": {
+      "accuracy": 0.8028169014084507,
+      "f1_synthetic": 0.7878787878787878,
+      "log_loss": 0.40853028516096535,
+      "confusion_matrix": [
+        [
+          31,
+          6
+        ],
+        [
+          8,
+          26
+        ]
+      ],
+      "errors": 14,
+      "feature_count": 9
+    },
+    "combined": {
+      "accuracy": 0.971830985915493,
+      "f1_synthetic": 0.9714285714285714,
+      "log_loss": 0.09565153018277421,
+      "confusion_matrix": [
+        [
+          35,
+          2
+        ],
+        [
+          0,
+          34
+        ]
+      ],
+      "errors": 2,
+      "feature_count": 40
+    }
+  },
+  "limitation": "Comparaci\u00f3n exploratoria en val ya observado; no demuestra desempe\u00f1o en voces ocultas."
+}

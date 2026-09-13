@@ -1,7 +1,10 @@
 import numpy as np
 import librosa
 
-from preprocess import load_audio
+try:
+    from .preprocess import load_audio
+except ImportError:
+    from preprocess import load_audio
 
 
 def extract_features(path):
